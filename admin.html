@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DILOGTECH — Área restrita</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0c;
+    --bg-panel:#111114;
+    --bg-panel-2:#16161a;
+    --line:#2a2a2f;
+    --gold:#f3b81f;
+    --gold-dim:#8a6a1a;
+    --white:#f4f4f2;
+    --grey:#9a9aa1;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--white);
+    font-family:'Inter',sans-serif;line-height:1.5;
+  }
+  h1,h2,h3,button,input,textarea,label{font-family:'Rajdhani',sans-serif;}
+  .mono{font-family:'Space Mono',monospace;}
+  .wrap{max-width:900px;margin:0 auto;padding:40px 24px 80px;}
+  header{
+    border-bottom:1px solid var(--line);padding:20px 24px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  header .brand{font-size:20px;font-weight:700;letter-spacing:.02em;}
+  header .brand em{color:var(--gold);font-style:normal;}
+  h1{font-size:clamp(24px,4vw,32px);font-weight:700;margin:0 0 6px;}
+  .sub{color:var(--grey);font-size:14.5px;margin:0 0 36px;}
+
+  /* login gate */
+  #gate{
+    max-width:420px;margin:80px auto;padding:36px 32px;
+    border:1px solid var(--line);border-radius:4px;background:var(--bg-panel);
+  }
+  #gate h1{font-size:22px;margin-bottom:8px;}
+  #gate p{color:var(--grey);font-size:14px;margin:0 0 24px;}
+  #gate input{
+    width:100%;padding:13px 14px;background:var(--bg);border:1px solid var(--line);
+    border-radius:var(--radius);color:var(--white);font-size:15px;font-family:'Inter',sans-serif;
+    margin-bottom:14px;
+  }
+  #gate input:focus{outline:none;border-color:var(--gold);}
+  #gateErro{color:#ff6b6b;font-size:13px;margin:-6px 0 14px;display:none;}
+
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+    padding:13px 24px;font-size:14px;font-weight:700;border-radius:var(--radius);
+    border:1px solid transparent;transition:transform .15s ease, box-shadow .15s ease;
+    font-family:'Rajdhani',sans-serif;
+  }
+  .btn-primary{background:var(--gold);color:#141200;width:100%;justify-content:center;}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(243,184,31,.28);}
+  .btn-ghost{border-color:var(--line);color:var(--white);background:transparent;}
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold);}
+
+  /* painel principal */
+  #painel{display:none;}
+  .card{
+    border:1px solid var(--line);border-radius:4px;background:var(--bg-panel);
+    padding:28px;margin-bottom:24px;
+  }
+  .card h2{font-size:18px;margin:0 0 6px;}
+  .card .desc{color:var(--grey);font-size:13.5px;margin:0 0 20px;}
+  label{display:block;font-size:13px;color:var(--gold);font-weight:700;letter-spacing:.06em;margin-bottom:8px;text-transform:uppercase;}
+  select, textarea, input[type=text]{
+    width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--line);
+    border-radius:var(--radius);color:var(--white);font-size:14.5px;font-family:'Inter',sans-serif;
+    margin-bottom:18px;
+  }
+  textarea{resize:vertical;min-height:60px;}
+  select:focus, textarea:focus, input:focus{outline:none;border-color:var(--gold);}
+
+  .drop{
+    border:2px dashed var(--line);border-radius:4px;padding:30px;text-align:center;
+    color:var(--grey);font-size:14px;cursor:pointer;margin-bottom:18px;transition:border-color .15s;
+  }
+  .drop:hover, .drop.over{border-color:var(--gold);color:var(--white);}
+  .drop input{display:none;}
+
+  .lista{list-style:none;margin:0;padding:0;}
+  .lista li{
+    display:flex;align-items:center;gap:14px;padding:12px;
+    border:1px solid var(--line);border-radius:4px;margin-bottom:10px;background:var(--bg);
+  }
+  .lista .thumb{
+    width:56px;height:56px;border-radius:3px;object-fit:cover;background:#000;flex-shrink:0;
+  }
+  .lista .info{flex:1;min-width:0;}
+  .lista .info .nome{font-size:13.5px;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lista .info .meta{font-size:12px;color:var(--grey);}
+  .lista .remover{
+    background:none;border:none;color:var(--grey);cursor:pointer;font-size:18px;line-height:1;
+    padding:4px 8px;
+  }
+  .lista .remover:hover{color:#ff6b6b;}
+
+  .item-form{
+    border-top:1px solid var(--line);margin-top:14px;padding-top:14px;
+  }
+
+  .aviso{
+    border:1px solid var(--gold-dim);border-radius:4px;padding:16px 18px;
+    background:linear-gradient(90deg,rgba(243,184,31,.06),transparent);
+    font-size:13.5px;color:var(--grey);margin-bottom:24px;
+  }
+  .aviso b{color:var(--gold);}
+
+  #saida{display:none;}
+  #saida textarea{
+    min-height:260px;font-family:'Space Mono',monospace;font-size:12.5px;
+    white-space:pre;
+  }
+  .passos{counter-reset:passo;list-style:none;padding:0;margin:0 0 20px;}
+  .passos li{
+    counter-increment:passo;position:relative;padding:4px 0 4px 34px;
+    font-size:14px;color:var(--white);margin-bottom:10px;
+  }
+  .passos li::before{
+    content:counter(passo);position:absolute;left:0;top:2px;
+    width:24px;height:24px;border:1px solid var(--gold-dim);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-family:'Space Mono';
+    font-size:12px;color:var(--gold);
+  }
+  .toolbar{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;}
+  footer{text-align:center;color:var(--grey);font-size:12.5px;padding:30px;border-top:1px solid var(--line);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">D!LOGTECH<em>.</em> <span style="color:var(--grey);font-weight:400;font-size:14px;">admin</span></div>
+</header>
+
+<div id="gate" class="wrap" style="padding:36px 32px;">
+  <h1>Área restrita</h1>
+  <p>Acesso exclusivo para gerenciar fotos e vídeos de serviços do site.</p>
+  <input type="password" id="senhaInput" placeholder="Senha" autocomplete="off">
+  <div id="gateErro">Senha incorreta. Tente novamente.</div>
+  <button class="btn btn-primary" onclick="entrar()">Entrar</button>
+</div>
+
+<div id="painel" class="wrap">
+  <h1>Novo serviço realizado</h1>
+  <p class="sub">Adicione as fotos ou vídeos do serviço, escreva a legenda e gere o pacote para publicar no site.</p>
+
+  <div class="aviso">
+    <b>Como funciona:</b> esta página não publica nada sozinha — ela só organiza os arquivos e gera o código pronto. No final, baixe o pacote e siga os passos para subir no Netlify, do mesmo jeito que você já faz hoje.
+  </div>
+
+  <div class="card">
+    <h2>1. Adicionar arquivos</h2>
+    <p class="desc">Fotos (JPG/PNG) ou vídeos (MP4) dos serviços que você realizou.</p>
+    <div class="drop" id="dropZone">
+      Clique aqui ou arraste as fotos/vídeos
+      <input type="file" id="fileInput" multiple accept="image/*,video/*">
+    </div>
+    <ul class="lista" id="listaArquivos"></ul>
+  </div>
+
+  <div class="card" id="cardGerar" style="display:none;">
+    <h2>2. Gerar pacote</h2>
+    <p class="desc">Escreva uma legenda curta para cada item na lista acima, depois clique em gerar.</p>
+    <button class="btn btn-primary" onclick="gerarPacote()">Gerar pacote para publicar</button>
+  </div>
+
+  <div class="card" id="saida">
+    <h2>3. Publicado!</h2>
+    <p id="avisoPublicado" style="display:none;color:var(--gold);font-weight:600;">
+      Seus arquivos já foram enviados e publicados. Pode fechar esta página — a novidade já está no ar.
+    </p>
+    <p style="opacity:.7;font-size:.9em;">Se quiser conferir o código gerado, aqui está:</p>
+    <label>Código do item publicado</label>
+    <textarea id="codigoGerado" readonly onclick="this.select()"></textarea>
+    <div class="toolbar">
+      <button class="btn btn-ghost" onclick="copiarCodigo()">Copiar código</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-ghost" onclick="sair()">Sair</button>
+  </div>
+</div>
+
+<footer>Painel interno DILOGTECH — não indexado, uso exclusivo da equipe.</footer>
+
+<script>
+  // Senha simples local — não é segurança real, apenas um filtro casual.
+  const SENHA = "Dilog1904@";
+
+  function entrar(){
+    const v = document.getElementById('senhaInput').value;
+    if (v === SENHA){
+      sessionStorage.setItem('dilog_admin_ok','1');
+      document.getElementById('gate').style.display='none';
+      document.getElementById('painel').style.display='block';
+    } else {
+      document.getElementById('gateErro').style.display='block';
+    }
+  }
+  document.getElementById('senhaInput').addEventListener('keydown', e=>{
+    if(e.key==='Enter') entrar();
+  });
+  function sair(){
+    sessionStorage.removeItem('dilog_admin_ok');
+    location.reload();
+  }
+  if (sessionStorage.getItem('dilog_admin_ok')==='1'){
+    document.getElementById('gate').style.display='none';
+    document.getElementById('painel').style.display='block';
+  }
+
+  // --- Upload / lista de arquivos ---
+  let itens = []; // {file, tipo, legenda, numero}
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const lista = document.getElementById('listaArquivos');
+  const cardGerar = document.getElementById('cardGerar');
+
+  dropZone.addEventListener('click', ()=> fileInput.click());
+  dropZone.addEventListener('dragover', e=>{e.preventDefault(); dropZone.classList.add('over');});
+  dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('over'));
+  dropZone.addEventListener('drop', e=>{
+    e.preventDefault(); dropZone.classList.remove('over');
+    adicionarArquivos(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', e=> adicionarArquivos(e.target.files));
+
+  function adicionarArquivos(fileList){
+    for (const file of fileList){
+      const tipo = file.type.startsWith('video') ? 'video' : 'foto';
+      itens.push({file, tipo, legenda:''});
+    }
+    renderLista();
+  }
+
+  function renderLista(){
+    lista.innerHTML = '';
+    itens.forEach((item, idx)=>{
+      const li = document.createElement('li');
+      const url = URL.createObjectURL(item.file);
+      let thumbHtml = '';
+      if (item.tipo === 'foto'){
+        thumbHtml = `<img class="thumb" src="${url}">`;
+      } else {
+        thumbHtml = `<video class="thumb" src="${url}" muted></video>`;
+      }
+      li.innerHTML = `
+        ${thumbHtml}
+        <div class="info">
+          <div class="nome">${item.file.name}</div>
+          <div class="meta">${item.tipo === 'video' ? 'Vídeo' : 'Foto'} · ${(item.file.size/1024/1024).toFixed(1)} MB</div>
+          <div class="item-form">
+            <input type="text" placeholder="Legenda deste serviço, ex: Troca de tela em notebook" data-idx="${idx}" class="legendaInput" value="${item.legenda}">
+          </div>
+        </div>
+        <button class="remover" data-idx="${idx}" title="Remover">×</button>
+      `;
+      lista.appendChild(li);
+    });
+    document.querySelectorAll('.remover').forEach(btn=>{
+      btn.onclick = ()=>{ itens.splice(+btn.dataset.idx,1); renderLista(); };
+    });
+    document.querySelectorAll('.legendaInput').forEach(inp=>{
+      inp.oninput = ()=>{ itens[+inp.dataset.idx].legenda = inp.value; };
+    });
+    cardGerar.style.display = itens.length ? 'block' : 'none';
+    document.getElementById('saida').style.display = 'none';
+  }
+
+  // --- Gerar pacote ---
+  async function gerarPacote(){
+    if (!itens.length){ alert('Adicione pelo menos um arquivo.'); return; }
+    const faltando = itens.some(i => !i.legenda.trim());
+    if (faltando && !confirm('Alguns itens estão sem legenda. Continuar mesmo assim?')) return;
+
+    const btn = document.querySelector('#painel .btn-primary');
+    const textoOriginal = btn ? btn.textContent : '';
+    if (btn){ btn.disabled = true; btn.textContent = 'Publicando...'; }
+
+    const formData = new FormData();
+    itens.forEach(item => {
+      formData.append('arquivo', item.file);
+      formData.append('tipo', item.tipo);
+      formData.append('legenda', item.legenda || 'Serviço realizado pela DILOGTECH');
+    });
+
+    try {
+      const resp = await fetch('/api/publicar-midia', {
+        method: 'POST',
+        headers: { 'x-admin-senha': SENHA },
+        body: formData
+      });
+      if (!resp.ok) throw new Error('Falha ao publicar (' + resp.status + ')');
+      const data = await resp.json();
+      document.getElementById('codigoGerado').value = data.codigoHtml.trimEnd();
+      document.getElementById('saida').style.display = 'block';
+      document.getElementById('saida').scrollIntoView({behavior:'smooth'});
+      document.getElementById('avisoPublicado').style.display = 'block';
+    } catch (err) {
+      alert('Não foi possível publicar agora: ' + err.message);
+    } finally {
+      if (btn){ btn.disabled = false; btn.textContent = textoOriginal; }
+    }
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.innerText = str;
+    return d.innerHTML;
+  }
+
+  function copiarCodigo(){
+    const ta = document.getElementById('codigoGerado');
+    ta.select();
+    document.execCommand('copy');
+    alert('Código copiado! Agora cole no index.html do site.');
+  }
+
+  </script>
+
+</body>
+</html>

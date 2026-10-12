@@ -1,74 +1,60 @@
-import type { Config, Context } from "@netlify/functions";
+import type { Config } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
 
-// Recebe fotos/vídeos do painel admin, salva no Blobs e devolve o HTML
-// pronto para o site. A publicação real do arquivo no site ainda depende
-// de outra função (servir-midia) que lê do mesmo Blobs store.
-export default async (req: Request, context: Context) => {
-  if (req.method !== "POST") {
-    return new Response("Método não permitido", { status: 405 });
-  }
+const MAX_BYTES = 5 * 1024 * 1024;
 
-  const senha = req.headers.get("x-admin-senha");
-  if (senha !== Netlify.env.get("ADMIN_SENHA")) {
-    return new Response("Não autorizado", { status: 401 });
-  }
+type Item = { id: string; tipo: "foto" | "video"; legenda: string; arquivo: string; ts: number };
 
-  const form = await req.formData();
-  const arquivos = form.getAll("arquivo") as File[];
-  const legendas = form.getAll("legenda") as string[];
-  const tipos = form.getAll("tipo") as string[];
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 
-  if (!arquivos.length) {
-    return new Response("Nenhum arquivo enviado", { status: 400 });
-  }
+export default async (req: Request) => {
+  const esperada = Netlify.env.get("ADMIN_SENHA");
+  if (!esperada) return json({ erro: "A senha do painel ainda não foi configurada no Netlify (variável ADMIN_SENHA)." }, 500);
+  if (req.headers.get("x-admin-senha") !== esperada) return json({ erro: "Senha incorreta." }, 401);
 
   const store = getStore("midia-site");
-  const timestamp = Date.now();
-  let codigoHtml = "";
+  const indice = ((await store.get("indice.json", { type: "json" })) as Item[] | null) ?? [];
 
-  for (let i = 0; i < arquivos.length; i++) {
-    const file = arquivos[i];
-    const legenda = (legendas[i] || "Serviço realizado pela DILOGTECH").trim();
-    const tipo = tipos[i];
-    const ext = file.name.split(".").pop();
-    const nomeBase = `novo-${timestamp}-${i + 1}`;
-    const nomeArquivo = `${nomeBase}.${ext}`;
-    const chave = tipo === "video" ? `videos/${nomeArquivo}` : `capas/${nomeArquivo}`;
+  if (req.method === "GET") return json(indice);
 
-    await store.set(chave, file, { metadata: { contentType: file.type } });
-
-    if (tipo === "video") {
-      codigoHtml += `        <div class="video-card">\n`;
-      codigoHtml += `          <video controls preload="none" poster="/midia/capas/${nomeBase}.jpg" playsinline>\n`;
-      codigoHtml += `            <source src="/midia/videos/${nomeArquivo}" type="video/mp4">\n`;
-      codigoHtml += `          </video>\n`;
-      codigoHtml += `          <p>${escapeHtml(legenda)}</p>\n`;
-      codigoHtml += `        </div>\n`;
-    } else {
-      codigoHtml += `        <div class="video-card">\n`;
-      codigoHtml += `          <img src="/midia/capas/${nomeArquivo}" alt="${escapeHtml(legenda)}" style="display:block;width:100%;aspect-ratio:9/16;object-fit:cover;">\n`;
-      codigoHtml += `          <p>${escapeHtml(legenda)}</p>\n`;
-      codigoHtml += `        </div>\n`;
-    }
+  if (req.method === "DELETE") {
+    const id = new URL(req.url).searchParams.get("id");
+    const item = indice.find((i) => i.id === id);
+    if (!item) return json({ erro: "Item não encontrado." }, 404);
+    await store.delete(`arquivos/${item.arquivo}`);
+    await store.setJSON("indice.json", indice.filter((i) => i.id !== id));
+    return json({ ok: true });
   }
 
-  // Guarda também a lista de itens publicados (para listagem futura)
-  const indice = (await store.get("indice.json", { type: "json" })) as any[] || [];
-  indice.push({ timestamp, codigoHtml });
-  await store.setJSON("indice.json", indice);
+  if (req.method !== "POST") return json({ erro: "Método não permitido." }, 405);
+  if (req.headers.get("x-verificar")) return json({ ok: true });
 
-  return Response.json({ ok: true, codigoHtml });
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch {
+    return json({ erro: "Não consegui ler o envio." }, 400);
+  }
+
+  const file = form.get("arquivo");
+  if (!(file instanceof File)) return json({ erro: "Nenhum arquivo recebido." }, 400);
+  if (file.size > MAX_BYTES) return json({ erro: "Arquivo maior que 5 MB. Reduza o tamanho e tente de novo." }, 413);
+
+  const ehVideo = file.type.startsWith("video/");
+  const ehFoto = file.type.startsWith("image/");
+  if (!ehVideo && !ehFoto) return json({ erro: "Envie apenas foto ou vídeo." }, 400);
+
+  const legenda = String(form.get("legenda") || "Serviço realizado pela DILOGTECH").trim().slice(0, 200);
+  const ext = (file.name.split(".").pop() || (ehVideo ? "mp4" : "jpg")).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "bin";
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const arquivo = `${id}.${ext}`;
+
+  await store.set(`arquivos/${arquivo}`, await file.arrayBuffer(), { metadata: { contentType: file.type } });
+  const item: Item = { id, tipo: ehVideo ? "video" : "foto", legenda, arquivo, ts: Date.now() };
+  await store.setJSON("indice.json", [...indice, item]);
+
+  return json({ ok: true, item });
 };
 
-function escapeHtml(str: string) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-export const config: Config = {
-  path: "/api/publicar-midia",
-};
+export const config: Config = { path: "/api/publicar-midia" };

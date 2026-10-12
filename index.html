@@ -580,7 +580,7 @@
           </video>
           <p>Montagem finalizada com water cooler</p>
         </div>
-        <!-- NOVOS SERVIÇOS AQUI -->
+        <span id="novos-servicos-ancora" hidden></span>
       </div>
 
       <div class="callout reveal">
@@ -712,6 +712,29 @@ fetch('/api/listar-midia').then(r=>r.ok?r.json():null).then(d=>{
   const grid=document.querySelector('.video-grid');
   if(grid) grid.insertAdjacentHTML('beforeend', d.html);
 }).catch(()=>{});
+</script>
+<script>
+(function(){
+  var ancora = document.getElementById('novos-servicos-ancora');
+  if(!ancora) return;
+  fetch('/api/midia-publicada').then(function(r){ return r.ok ? r.json() : []; }).then(function(lista){
+    lista.forEach(function(item){
+      var card = document.createElement('div'); card.className = 'video-card';
+      var url = '/midia/' + encodeURIComponent(item.arquivo);
+      var m;
+      if(item.tipo === 'video'){
+        m = document.createElement('video'); m.controls = true; m.preload = 'metadata';
+        m.setAttribute('playsinline',''); m.src = url + '#t=0.1';
+      } else {
+        m = document.createElement('img'); m.src = url; m.alt = item.legenda;
+        m.style.cssText = 'display:block;width:100%;aspect-ratio:9/16;object-fit:cover;';
+      }
+      var p = document.createElement('p'); p.textContent = item.legenda;
+      card.appendChild(m); card.appendChild(p);
+      ancora.parentNode.insertBefore(card, ancora);
+    });
+  }).catch(function(){});
+})();
 </script>
 </body>
 </html>

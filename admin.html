@@ -150,10 +150,10 @@
 
 <div id="painel" class="wrap">
   <h1>Novo serviço realizado</h1>
-  <p class="sub">Adicione as fotos ou vídeos do serviço, escreva a legenda e gere o pacote para publicar no site.</p>
+  <p class="sub">Escolha as fotos ou vídeos, escreva a legenda e clique em publicar. Aparece no site na hora.</p>
 
   <div class="aviso">
-    <b>Como funciona:</b> esta página não publica nada sozinha — ela só organiza os arquivos e gera o código pronto. No final, baixe o pacote e siga os passos para subir no Netlify, do mesmo jeito que você já faz hoje.
+    <b>Limite:</b> cada arquivo pode ter até 5 MB. Se um vídeo for maior, comprima antes de enviar.
   </div>
 
   <div class="card">
@@ -167,22 +167,16 @@
   </div>
 
   <div class="card" id="cardGerar" style="display:none;">
-    <h2>2. Gerar pacote</h2>
-    <p class="desc">Escreva uma legenda curta para cada item na lista acima, depois clique em gerar.</p>
-    <button class="btn btn-primary" onclick="gerarPacote()">Gerar pacote para publicar</button>
+    <h2>2. Publicar</h2>
+    <p class="desc">Escreva uma legenda curta para cada item na lista acima, depois clique em publicar.</p>
+    <button class="btn btn-primary" id="btnPublicar" onclick="publicar()">Publicar no site</button>
+    <p id="status" style="margin-top:12px;"></p>
   </div>
 
-  <div class="card" id="saida">
-    <h2>3. Publicado!</h2>
-    <p id="avisoPublicado" style="display:none;color:var(--gold);font-weight:600;">
-      Seus arquivos já foram enviados e publicados. Pode fechar esta página — a novidade já está no ar.
-    </p>
-    <p style="opacity:.7;font-size:.9em;">Se quiser conferir o código gerado, aqui está:</p>
-    <label>Código do item publicado</label>
-    <textarea id="codigoGerado" readonly onclick="this.select()"></textarea>
-    <div class="toolbar">
-      <button class="btn btn-ghost" onclick="copiarCodigo()">Copiar código</button>
-    </div>
+  <div class="card">
+    <h2>Já publicados pelo painel</h2>
+    <ul class="lista" id="listaPublicados"></ul>
+    <p class="desc" id="semPublicados" style="display:none;">Nada publicado por aqui ainda.</p>
   </div>
 
   <div class="toolbar">
@@ -193,33 +187,45 @@
 <footer>Painel interno DILOGTECH — não indexado, uso exclusivo da equipe.</footer>
 
 <script>
-  // Senha simples local — não é segurança real, apenas um filtro casual.
-  const SENHA = "Dilog1904@";
+  let senhaAtual = sessionStorage.getItem('dilog_admin_senha') || '';
 
-  function entrar(){
+  function mostrarPainel(){
+    document.getElementById('gate').style.display='none';
+    document.getElementById('painel').style.display='block';
+    carregarPublicados();
+  }
+
+  async function entrar(){
     const v = document.getElementById('senhaInput').value;
-    if (v === SENHA){
-      sessionStorage.setItem('dilog_admin_ok','1');
-      document.getElementById('gate').style.display='none';
-      document.getElementById('painel').style.display='block';
-    } else {
-      document.getElementById('gateErro').style.display='block';
+    const erro = document.getElementById('gateErro');
+    erro.style.display = 'none';
+    try {
+      const r = await fetch('/api/publicar-midia', {method:'POST', headers:{'x-admin-senha': v, 'x-verificar':'1'}});
+      if (r.ok){
+        senhaAtual = v;
+        sessionStorage.setItem('dilog_admin_senha', v);
+        mostrarPainel();
+        return;
+      }
+      const d = await r.json().catch(()=>({}));
+      erro.textContent = d.erro || 'Senha incorreta.';
+    } catch(e){
+      erro.textContent = 'Não consegui falar com o servidor.';
     }
+    erro.style.display = 'block';
   }
   document.getElementById('senhaInput').addEventListener('keydown', e=>{
     if(e.key==='Enter') entrar();
   });
   function sair(){
-    sessionStorage.removeItem('dilog_admin_ok');
+    sessionStorage.removeItem('dilog_admin_senha');
     location.reload();
   }
-  if (sessionStorage.getItem('dilog_admin_ok')==='1'){
-    document.getElementById('gate').style.display='none';
-    document.getElementById('painel').style.display='block';
-  }
+  if (senhaAtual) mostrarPainel();
 
-  // --- Upload / lista de arquivos ---
-  let itens = []; // {file, tipo, legenda, numero}
+  // --- Seleção de arquivos ---
+  const MAX = 5 * 1024 * 1024;
+  let itens = [];
   const dropZone = document.getElementById('dropZone');
   const fileInput = document.getElementById('fileInput');
   const lista = document.getElementById('listaArquivos');
@@ -232,7 +238,7 @@
     e.preventDefault(); dropZone.classList.remove('over');
     adicionarArquivos(e.dataTransfer.files);
   });
-  fileInput.addEventListener('change', e=> adicionarArquivos(e.target.files));
+  fileInput.addEventListener('change', e=> { adicionarArquivos(e.target.files); fileInput.value=''; });
 
   function adicionarArquivos(fileList){
     for (const file of fileList){
@@ -247,85 +253,98 @@
     itens.forEach((item, idx)=>{
       const li = document.createElement('li');
       const url = URL.createObjectURL(item.file);
-      let thumbHtml = '';
-      if (item.tipo === 'foto'){
-        thumbHtml = `<img class="thumb" src="${url}">`;
-      } else {
-        thumbHtml = `<video class="thumb" src="${url}" muted></video>`;
-      }
+      const thumb = item.tipo === 'foto'
+        ? `<img class="thumb" src="${url}">`
+        : `<video class="thumb" src="${url}" muted></video>`;
+      const grande = item.file.size > MAX;
       li.innerHTML = `
-        ${thumbHtml}
+        ${thumb}
         <div class="info">
-          <div class="nome">${item.file.name}</div>
-          <div class="meta">${item.tipo === 'video' ? 'Vídeo' : 'Foto'} · ${(item.file.size/1024/1024).toFixed(1)} MB</div>
+          <div class="nome"></div>
+          <div class="meta">${item.tipo === 'video' ? 'Vídeo' : 'Foto'} · ${(item.file.size/1024/1024).toFixed(1)} MB${grande ? ' — <b style="color:#ff6b6b">maior que 5 MB, não vai enviar</b>' : ''}</div>
           <div class="item-form">
-            <input type="text" placeholder="Legenda deste serviço, ex: Troca de tela em notebook" data-idx="${idx}" class="legendaInput" value="${item.legenda}">
+            <input type="text" placeholder="Legenda deste serviço, ex: Troca de tela em notebook" data-idx="${idx}" class="legendaInput">
           </div>
         </div>
         <button class="remover" data-idx="${idx}" title="Remover">×</button>
       `;
+      li.querySelector('.nome').textContent = item.file.name;
+      li.querySelector('.legendaInput').value = item.legenda;
       lista.appendChild(li);
     });
-    document.querySelectorAll('.remover').forEach(btn=>{
+    document.querySelectorAll('#listaArquivos .remover').forEach(btn=>{
       btn.onclick = ()=>{ itens.splice(+btn.dataset.idx,1); renderLista(); };
     });
     document.querySelectorAll('.legendaInput').forEach(inp=>{
       inp.oninput = ()=>{ itens[+inp.dataset.idx].legenda = inp.value; };
     });
     cardGerar.style.display = itens.length ? 'block' : 'none';
-    document.getElementById('saida').style.display = 'none';
   }
 
-  // --- Gerar pacote ---
-  async function gerarPacote(){
-    if (!itens.length){ alert('Adicione pelo menos um arquivo.'); return; }
-    const faltando = itens.some(i => !i.legenda.trim());
-    if (faltando && !confirm('Alguns itens estão sem legenda. Continuar mesmo assim?')) return;
+  // --- Publicar (um arquivo por vez) ---
+  async function publicar(){
+    if (!itens.length) return;
+    if (itens.some(i => i.file.size > MAX)){ alert('Tem arquivo maior que 5 MB na lista. Remova ou comprima antes.'); return; }
+    if (itens.some(i => !i.legenda.trim()) && !confirm('Alguns itens estão sem legenda. Continuar mesmo assim?')) return;
 
-    const btn = document.querySelector('#painel .btn-primary');
-    const textoOriginal = btn ? btn.textContent : '';
-    if (btn){ btn.disabled = true; btn.textContent = 'Publicando...'; }
-
-    const formData = new FormData();
-    itens.forEach(item => {
-      formData.append('arquivo', item.file);
-      formData.append('tipo', item.tipo);
-      formData.append('legenda', item.legenda || 'Serviço realizado pela DILOGTECH');
-    });
-
-    try {
-      const resp = await fetch('/api/publicar-midia', {
-        method: 'POST',
-        headers: { 'x-admin-senha': SENHA },
-        body: formData
-      });
-      if (!resp.ok) throw new Error('Falha ao publicar (' + resp.status + ')');
-      const data = await resp.json();
-      document.getElementById('codigoGerado').value = data.codigoHtml.trimEnd();
-      document.getElementById('saida').style.display = 'block';
-      document.getElementById('saida').scrollIntoView({behavior:'smooth'});
-      document.getElementById('avisoPublicado').style.display = 'block';
-    } catch (err) {
-      alert('Não foi possível publicar agora: ' + err.message);
-    } finally {
-      if (btn){ btn.disabled = false; btn.textContent = textoOriginal; }
+    const btn = document.getElementById('btnPublicar');
+    const status = document.getElementById('status');
+    btn.disabled = true;
+    let ok = 0;
+    const restantes = [];
+    for (let i = 0; i < itens.length; i++){
+      const item = itens[i];
+      status.textContent = `Enviando ${i+1} de ${itens.length}...`;
+      const fd = new FormData();
+      fd.append('arquivo', item.file);
+      fd.append('legenda', item.legenda);
+      try {
+        const r = await fetch('/api/publicar-midia', {method:'POST', headers:{'x-admin-senha': senhaAtual}, body: fd});
+        if (r.ok){ ok++; continue; }
+        const d = await r.json().catch(()=>({}));
+        status.textContent = `Falhou em "${item.file.name}": ${d.erro || 'erro ' + r.status}`;
+      } catch(e){
+        status.textContent = `Falhou em "${item.file.name}": sem conexão com o servidor.`;
+      }
+      restantes.push(item);
+      for (let j = i+1; j < itens.length; j++) restantes.push(itens[j]);
+      break;
     }
+    btn.disabled = false;
+    itens = restantes;
+    renderLista();
+    if (!restantes.length) status.textContent = `Pronto! ${ok} item(ns) publicado(s) no site.`;
+    else if (ok) status.textContent += ` (${ok} já foram publicados.)`;
+    carregarPublicados();
   }
 
-  function escapeHtml(str){
-    const d = document.createElement('div');
-    d.innerText = str;
-    return d.innerHTML;
+  // --- Publicados / excluir ---
+  async function carregarPublicados(){
+    const ul = document.getElementById('listaPublicados');
+    try {
+      const r = await fetch('/api/publicar-midia', {headers:{'x-admin-senha': senhaAtual}});
+      if (!r.ok) return;
+      const dados = await r.json();
+      ul.innerHTML = '';
+      document.getElementById('semPublicados').style.display = dados.length ? 'none' : 'block';
+      dados.slice().reverse().forEach(item=>{
+        const li = document.createElement('li');
+        const url = '/midia/' + encodeURIComponent(item.arquivo);
+        li.innerHTML = (item.tipo === 'video'
+          ? `<video class="thumb" src="${url}#t=0.1" muted preload="metadata"></video>`
+          : `<img class="thumb" src="${url}">`) + `<div class="info"><div class="nome"></div><div class="meta">${item.tipo === 'video' ? 'Vídeo' : 'Foto'}</div></div><button class="remover" title="Excluir">×</button>`;
+        li.querySelector('.nome').textContent = item.legenda;
+        li.querySelector('.remover').onclick = async ()=>{
+          if (!confirm('Excluir este item do site?')) return;
+          const d = await fetch('/api/publicar-midia?id=' + encodeURIComponent(item.id), {method:'DELETE', headers:{'x-admin-senha': senhaAtual}});
+          if (!d.ok) alert('Não consegui excluir.');
+          carregarPublicados();
+        };
+        ul.appendChild(li);
+      });
+    } catch(e){}
   }
-
-  function copiarCodigo(){
-    const ta = document.getElementById('codigoGerado');
-    ta.select();
-    document.execCommand('copy');
-    alert('Código copiado! Agora cole no index.html do site.');
-  }
-
-  </script>
+</script>
 
 </body>
 </html>
